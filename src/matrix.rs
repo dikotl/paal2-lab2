@@ -139,6 +139,45 @@ impl<T> IndexMut<usize> for Matrix<T> {
     }
 }
 
+impl<T: Clone> From<&[&[T]]> for Matrix<T> {
+    fn from(value: &[&[T]]) -> Self {
+        Self(
+            value
+                .iter()
+                .map(|row| row.iter().cloned().collect_vec())
+                .collect_vec(),
+        )
+    }
+}
+
+impl<T: Clone> From<Vec<Vec<T>>> for Matrix<T> {
+    fn from(value: Vec<Vec<T>>) -> Self {
+        Self(value)
+    }
+}
+
+impl<T: Display> Display for Matrix<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "{}",
+            self.0
+                .iter()
+                .map(|row| format!("[{}]", row.iter().join(", ")))
+                .join("\n")
+        )
+    }
+}
+
+impl<T> IntoIterator for Matrix<T> {
+    type Item = Vec<T>;
+    type IntoIter = vec::IntoIter<Vec<T>>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
+    }
+}
+
 pub struct MatrixDiagonalIter<'a, T: 'a> {
     matrix: &'a Matrix<T>,
     i: usize,
@@ -224,45 +263,6 @@ impl<T: Ord + Debug + Display> Sort for MatrixDiagonalIterMut<'_, T> {
             let max = self.len() - 1;
             cmp(&self.matrix[(a, max - a)], &self.matrix[(b, max - b)])
         }
-    }
-}
-
-impl<T> IntoIterator for Matrix<T> {
-    type Item = Vec<T>;
-    type IntoIter = vec::IntoIter<Vec<T>>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.0.into_iter()
-    }
-}
-
-impl<T: Clone> From<&[&[T]]> for Matrix<T> {
-    fn from(value: &[&[T]]) -> Self {
-        Self(
-            value
-                .iter()
-                .map(|row| row.iter().cloned().collect_vec())
-                .collect_vec(),
-        )
-    }
-}
-
-impl<T: Clone> From<Vec<Vec<T>>> for Matrix<T> {
-    fn from(value: Vec<Vec<T>>) -> Self {
-        Self(value)
-    }
-}
-
-impl<T: Display> Display for Matrix<T> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "{}",
-            self.0
-                .iter()
-                .map(|row| format!("[{}]", row.iter().join(", ")))
-                .join("\n")
-        )
     }
 }
 
