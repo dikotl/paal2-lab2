@@ -4,11 +4,11 @@ use std::str::FromStr;
 
 use crate::matrix::Matrix;
 
-pub fn value<T>(message: impl Display) -> T
-where
-    T: FromStr,
-    T::Err: Display,
-{
+pub trait FromStrDisplayErr: FromStr<Err: Display> {}
+
+impl<T> FromStrDisplayErr for T where T: FromStr<Err: Display> {}
+
+pub fn value<T: FromStrDisplayErr>(message: impl Display) -> T {
     eprint!("\x1b[36;1m{message}:\x1b[0m ");
 
     let mut buf = String::new();
@@ -27,11 +27,7 @@ where
     }
 }
 
-pub fn array<T>() -> Vec<T>
-where
-    T: FromStr,
-    T::Err: Display,
-{
+pub fn array<T: FromStrDisplayErr>() -> Vec<T> {
     let mut buf = String::new();
 
     if let Err(error) = io::stdin().read_line(&mut buf) {
@@ -51,11 +47,7 @@ where
     parsed_items
 }
 
-pub fn array_fixed<T>(size: usize) -> Vec<T>
-where
-    T: FromStr + Display,
-    T::Err: Display,
-{
+pub fn fixed_array<T: FromStrDisplayErr>(size: usize) -> Vec<T> {
     loop {
         let array = array();
 
@@ -70,32 +62,25 @@ where
     }
 }
 
-pub fn matrix<T>() -> Matrix<T>
-where
-    T: FromStr + Display + Debug,
-    T::Err: Display,
-{
-    let columns = value::<usize>("Input matrix rows count");
+pub fn matrix<T: FromStrDisplayErr + Display + Debug>() -> Matrix<T> {
+    let columns = value("Input matrix rows count");
     let mut matrix = Matrix::with_capacity(columns);
 
     for _ in 0..columns {
         matrix.push_row(array());
     }
 
+    // TODO: print it on error only
     message!("Typed matrix:\n{matrix}",);
     matrix
 }
 
-pub fn square_matrix<T>() -> Matrix<T>
-where
-    T: FromStr + Display + Debug,
-    T::Err: Display,
-{
-    let size = value::<usize>("Input matrix size");
+pub fn square_matrix<T: FromStrDisplayErr + Display + Debug>() -> Matrix<T> {
+    let size = value("Input matrix size");
     let mut matrix = Matrix::with_capacity(size);
 
     for _ in 0..size {
-        matrix.push_row(array_fixed(size));
+        matrix.push_row(fixed_array(size));
     }
 
     message!("Typed matrix:\n{matrix}",);

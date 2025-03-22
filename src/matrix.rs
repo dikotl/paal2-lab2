@@ -1,3 +1,5 @@
+use core::cmp::Ordering;
+use core::ops::{Index, IndexMut};
 use std::fmt::{self, Debug, Display};
 use std::{mem, slice, vec};
 
@@ -6,11 +8,7 @@ use itertools::Itertools as _;
 #[derive(Debug, Default, Clone)]
 pub struct Matrix<T>(Vec<Vec<T>>);
 
-impl<T: Display + Debug> Matrix<T> {
-    pub fn new() -> Self {
-        Self(Vec::new())
-    }
-
+impl<T: Debug + Display> Matrix<T> {
     pub fn with_capacity(capacity: usize) -> Self {
         Self(Vec::with_capacity(capacity))
     }
@@ -20,15 +18,32 @@ impl<T: Display + Debug> Matrix<T> {
         (row_a, column_a): (usize, usize),
         (row_b, column_b): (usize, usize),
     ) {
+        debug!(
+            "swapping {:#?} at ({row_a}, {column_a}) with {:#?} at ({row_b}, {column_b})",
+            self[(row_a, column_a)],
+            self[(row_b, column_b)]
+        );
+
         if row_a == row_b {
-            self.0[row_a].swap(column_a, column_b);
+            // Fast path, just swap elements in the row.
+            self[row_a].swap(column_a, column_b);
         } else {
-            let (row1, row2) = self.0.split_at_mut(row_b);
-            let row1 = &mut row1[0];
-            let row2 = &mut row2[0];
+            // Swap row indices so `row_a <= row_b`.
+            let row_a = <usize>::min(row_a, row_b);
+            let row_b = <usize>::max(row_a, row_b);
+
+            // Split at greater row index.
+            let (left, right) = self.0.split_at_mut(row_b);
+
+            // Left part contains all rows needed to just index it by `row_a`.
+            // Right part contains required row at index `0`.
+            let row1 = &mut left[row_a];
+            let row2 = &mut right[0];
 
             mem::swap(&mut row1[column_a], &mut row2[column_b]);
         }
+
+        debug!("Swapped matrix:\n{self}");
     }
 
     pub fn swap_rows(&mut self, a: usize, b: usize) {
@@ -43,12 +58,172 @@ impl<T: Display + Debug> Matrix<T> {
         self.0.push(row)
     }
 
+    pub fn is_square(&self) -> bool {
+        self.iter().all(|row| row.len() == self.rows())
+    }
+
     pub fn iter(&self) -> slice::Iter<Vec<T>> {
         self.0.iter()
     }
 
     pub fn iter_mut(&mut self) -> slice::IterMut<Vec<T>> {
         self.0.iter_mut()
+    }
+
+    pub fn primary_diagonal(&self) -> MatrixDiagonalIter<T> {
+        assert!(self.is_square());
+
+        MatrixDiagonalIter {
+            matrix: self,
+            i: 0,
+            primary: true,
+        }
+    }
+
+    pub fn side_diagonal(&self) -> MatrixDiagonalIter<T> {
+        assert!(self.is_square());
+
+        MatrixDiagonalIter {
+            matrix: self,
+            i: 0,
+            primary: false,
+        }
+    }
+
+    pub fn primary_diagonal_mut(&mut self) -> MatrixDiagonalIterMut<T> {
+        assert!(self.is_square());
+
+        MatrixDiagonalIterMut {
+            matrix: self,
+            i: 0,
+            primary: true,
+        }
+    }
+
+    pub fn side_diagonal_mut(&mut self) -> MatrixDiagonalIterMut<T> {
+        assert!(self.is_square());
+
+        MatrixDiagonalIterMut {
+            matrix: self,
+            i: 0,
+            primary: false,
+        }
+    }
+}
+
+impl<T> Index<(usize, usize)> for Matrix<T> {
+    type Output = T;
+
+    fn index(&self, (row, column): (usize, usize)) -> &Self::Output {
+        &self.0[row][column]
+    }
+}
+
+impl<T> Index<usize> for Matrix<T> {
+    type Output = [T];
+
+    fn index(&self, row: usize) -> &Self::Output {
+        &self.0[row]
+    }
+}
+
+impl<T> IndexMut<(usize, usize)> for Matrix<T> {
+    fn index_mut(&mut self, (row, column): (usize, usize)) -> &mut Self::Output {
+        &mut self.0[row][column]
+    }
+}
+
+impl<T> IndexMut<usize> for Matrix<T> {
+    fn index_mut(&mut self, row: usize) -> &mut Self::Output {
+        &mut self.0[row]
+    }
+}
+
+pub struct MatrixDiagonalIter<'a, T: 'a> {
+    matrix: &'a Matrix<T>,
+    i: usize,
+    primary: bool,
+}
+
+pub struct MatrixDiagonalIterMut<'a, T: 'a> {
+    pub matrix: &'a mut Matrix<T>,
+    i: usize,
+    primary: bool,
+}
+
+impl<'a, T: Debug + Display> Iterator for MatrixDiagonalIter<'a, T> {
+    type Item = &'a T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let max = self.matrix.rows() - 1;
+
+        if self.i > max {
+            return None;
+        }
+
+        let i = self.i;
+        self.i += 1;
+
+        Some(if self.primary {
+            &self.matrix.0[i][i]
+        } else {
+            &self.matrix.0[i][max - i]
+        })
+    }
+}
+
+impl<'a, T: Debug + Display> Iterator for MatrixDiagonalIterMut<'a, T> {
+    type Item = &'a mut T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let max = self.matrix.rows() - 1;
+
+        if self.i > max {
+            return None;
+        }
+
+        let i = self.i;
+        self.i += 1;
+
+        let ptr = if self.primary {
+            &raw mut self.matrix.0[i][i]
+        } else {
+            &raw mut self.matrix.0[i][max - i]
+        };
+
+        // SAFETY: We guarantee that each diagonal element is unique and no two
+        // mutable references overlap. This unsafe block converts the raw
+        // pointer back into a mutable reference.
+        unsafe { Some(&mut *ptr) }
+    }
+}
+
+impl<T: Ord + Debug + Display> Sort for MatrixDiagonalIterMut<'_, T> {
+    type Item = T;
+
+    fn len(&self) -> usize {
+        self.matrix.rows()
+    }
+
+    fn swap(&mut self, a: usize, b: usize) {
+        if self.primary {
+            self.matrix.swap_elements((a, a), (b, b));
+        } else {
+            let max = self.len() - 1;
+            self.matrix.swap_elements((a, max - a), (b, max - b));
+        }
+    }
+
+    fn cmp<F>(&self, a: usize, b: usize, cmp: &mut F) -> Ordering
+    where
+        F: FnMut(&Self::Item, &Self::Item) -> Ordering,
+    {
+        if self.primary {
+            cmp(&self.matrix[(a, a)], &self.matrix[(b, b)])
+        } else {
+            let max = self.len() - 1;
+            cmp(&self.matrix[(a, max - a)], &self.matrix[(b, max - b)])
+        }
     }
 }
 

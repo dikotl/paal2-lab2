@@ -7,6 +7,8 @@ use std::str::FromStr;
 
 use Command::*;
 
+use crate::matrix::Sort;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Command {
     RunTask1,
@@ -70,8 +72,9 @@ fn task1() {
     println!("{negative_elements}")
 }
 
-/// Swap the corresponding elements of the first (technically 0) row and the
-/// main diagonal; assume that the matrix is guaranteed to be square.
+/// Swap the corresponding elements of the first row and the main diagonal.
+///
+/// Assume that the matrix is guaranteed to be square.
 fn task2() {
     let mut matrix = request::square_matrix::<i32>();
 
@@ -83,9 +86,17 @@ fn task2() {
 }
 
 /// Sort the side diagonal of the matrix from the minimum right-top to the
-/// maximum left-bottom; assume that the matrix is guaranteed to be square.
+/// maximum left-bottom.
+///
+/// Assume that the matrix is guaranteed to be square.
 fn task3() {
-    todo!()
+    let mut matrix = request::square_matrix::<i32>();
+
+    matrix
+        .side_diagonal_mut()
+        .bubble_sort(|a, b| <i32>::cmp(a, b).reverse());
+
+    println!("{matrix}");
 }
 
 /// Sort the columns of the matrix by non-decreasing minimum element.
