@@ -90,3 +90,35 @@ impl<T: Display> Display for Matrix<T> {
         )
     }
 }
+
+pub trait Sort {
+    type Item: Ord;
+
+    fn len(&self) -> usize;
+    fn swap(&mut self, a: usize, b: usize);
+    fn cmp<F>(&self, a: usize, b: usize, cmp: &mut F) -> Ordering
+    where
+        F: FnMut(&Self::Item, &Self::Item) -> Ordering;
+
+    fn bubble_sort<F>(&mut self, mut cmp: F)
+    where
+        F: FnMut(&Self::Item, &Self::Item) -> Ordering,
+    {
+        let len = self.len();
+
+        for i in 0..len {
+            let mut swapped = false;
+
+            for j in (i + 1)..len {
+                if self.cmp(i, j, &mut cmp) == Ordering::Greater {
+                    self.swap(i, j);
+                    swapped = true;
+                }
+            }
+
+            if !swapped {
+                break;
+            }
+        }
+    }
+}
