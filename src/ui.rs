@@ -17,3 +17,13 @@ macro_rules! error {
         std::eprintln!("\x1b[31;1mError!\x1b[0m \x1b[1m{}\x1b[0m", std::format_args!($($arg)*))
     }};
 }
+
+#[macro_export]
+macro_rules! debug {
+    () => {
+        std::eprintln!()
+    };
+    ($($arg:tt)*) => {{
+        std::eprintln!("\x1b[33m{}\x1b[0m", std::format_args!($($arg)*))
+    }};
+}
