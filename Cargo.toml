@@ -1,7 +1,8 @@
 [package]
-name = "paal2-lab2"
+name    = "paal2-lab2"
 version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+# Additional iterator methods
 itertools = "0.14.0"

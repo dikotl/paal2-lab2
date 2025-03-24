@@ -6,6 +6,7 @@ mod request;
 use std::str::FromStr;
 
 use Command::*;
+use itertools::Itertools as _;
 
 use crate::matrix::Sort;
 
@@ -101,5 +102,21 @@ fn task3() {
 
 /// Sort the columns of the matrix by non-decreasing minimum element.
 fn task4() {
-    todo!()
+    let mut matrix = request::matrix::<i32>();
+
+    // 4 reallocations omg.
+    matrix.transpose();
+    matrix = matrix
+        .into_iter()
+        .sorted_by(|column_a, column_b| {
+            <i32>::cmp(
+                column_a.iter().max().unwrap_or(&0),
+                column_b.iter().max().unwrap_or(&0),
+            )
+        })
+        .collect_vec()
+        .into();
+    matrix.transpose();
+
+    println!("{matrix}");
 }

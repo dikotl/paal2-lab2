@@ -64,7 +64,7 @@ pub fn fixed_array<T: FromStrDisplayErr>(size: usize) -> Vec<T> {
 
 pub fn matrix<T: FromStrDisplayErr + Display + Debug>() -> Matrix<T> {
     let columns = value("Input matrix rows count");
-    let mut matrix = Matrix::with_capacity(columns);
+    let mut matrix = Matrix::with_rows(columns);
 
     for _ in 0..columns {
         matrix.push_row(array());
@@ -77,7 +77,7 @@ pub fn matrix<T: FromStrDisplayErr + Display + Debug>() -> Matrix<T> {
 
 pub fn square_matrix<T: FromStrDisplayErr + Display + Debug>() -> Matrix<T> {
     let size = value("Input matrix size");
-    let mut matrix = Matrix::with_capacity(size);
+    let mut matrix = Matrix::with_rows(size);
 
     for _ in 0..size {
         matrix.push_row(fixed_array(size));
