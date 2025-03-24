@@ -1,14 +1,14 @@
 #[macro_use]
-mod ui;
+mod log;
 mod matrix;
 mod request;
+mod sort;
 
 use std::str::FromStr;
 
-use Command::*;
 use itertools::Itertools as _;
 
-use crate::matrix::Sort;
+use crate::sort::Sort;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Command {
@@ -26,14 +26,14 @@ impl FromStr for Command {
         let input = s.trim().to_lowercase();
 
         if input == "exit" {
-            return Ok(Exit);
+            return Ok(Command::Exit);
         }
 
         match input.parse() {
-            Ok(1) => Ok(RunTask1),
-            Ok(2) => Ok(RunTask2),
-            Ok(3) => Ok(RunTask3),
-            Ok(4) => Ok(RunTask4),
+            Ok(1) => Ok(Command::RunTask1),
+            Ok(2) => Ok(Command::RunTask2),
+            Ok(3) => Ok(Command::RunTask3),
+            Ok(4) => Ok(Command::RunTask4),
             Ok(task) => Err(format!("Unknown task: {task}")),
             Err(_) => Err(String::from("Invalid input")),
         }
@@ -52,11 +52,11 @@ fn main() {
         message!("{TASKS}");
 
         match request::value::<String>("Select task").parse() {
-            Ok(Exit) => break 'task_selector_loop,
-            Ok(RunTask1) => task1(),
-            Ok(RunTask2) => task2(),
-            Ok(RunTask3) => task3(),
-            Ok(RunTask4) => task4(),
+            Ok(Command::Exit) => break 'task_selector_loop,
+            Ok(Command::RunTask1) => task1(),
+            Ok(Command::RunTask2) => task2(),
+            Ok(Command::RunTask3) => task3(),
+            Ok(Command::RunTask4) => task4(),
             Err(error) => error!("{error}"),
         }
     }
@@ -66,7 +66,7 @@ fn main() {
 fn task1() {
     let matrix = request::matrix::<i32>();
     let negative_elements = matrix
-        .iter()
+        .iter_rows()
         .map(|row| row.iter().filter(|elem| elem.is_negative()).count())
         .sum::<usize>();
 
@@ -94,7 +94,7 @@ fn task3() {
     let mut matrix = request::square_matrix::<i32>();
 
     matrix
-        .side_diagonal_mut()
+        .iter_diagonal_mut(false)
         .bubble_sort(|a, b| <i32>::cmp(a, b).reverse());
 
     println!("{matrix}");

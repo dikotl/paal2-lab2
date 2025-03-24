@@ -1,14 +1,17 @@
 use core::cmp::Ordering;
 use core::iter::Flatten;
 use core::ops::{Index, IndexMut};
-use std::fmt::{self, Debug, Display};
+use std::fmt::{self, Display};
 use std::{mem, slice, vec};
 
 use itertools::Itertools;
 
+use crate::sort::Sort;
+
 #[derive(Debug, Default, Clone)]
 pub struct Matrix<T>(Vec<Vec<T>>);
 
+#[allow(unused)]
 impl<T> Matrix<T> {
     pub fn with_rows(capacity: usize) -> Matrix<T> {
         Matrix(Vec::with_capacity(capacity))
@@ -69,11 +72,15 @@ impl<T> Matrix<T> {
     }
 
     pub fn is_square(&self) -> bool {
-        self.iter().all(|row| row.len() == self.rows())
+        self.iter_rows().all(|row| row.len() == self.rows())
     }
 
-    pub fn iter(&self) -> slice::Iter<Vec<T>> {
+    pub fn iter_rows(&self) -> slice::Iter<Vec<T>> {
         self.0.iter()
+    }
+
+    pub fn iter_rows_mut(&mut self) -> slice::IterMut<Vec<T>> {
+        self.0.iter_mut()
     }
 
     pub fn iter_elements(&self) -> Flatten<slice::Iter<Vec<T>>> {
@@ -84,64 +91,34 @@ impl<T> Matrix<T> {
         self.0.iter_mut().flatten()
     }
 
-    pub fn iter_mut(&mut self) -> slice::IterMut<Vec<T>> {
-        self.0.iter_mut()
-    }
-
-    pub fn primary_diagonal(&self) -> MatrixDiagonalIter<T> {
-        assert!(self.is_square());
-
+    pub fn iter_diagonal(&self, primary: bool) -> MatrixDiagonalIter<T> {
         MatrixDiagonalIter {
             matrix: self,
             i: 0,
-            primary: true,
+            primary,
         }
     }
 
-    pub fn side_diagonal(&self) -> MatrixDiagonalIter<T> {
-        assert!(self.is_square());
-
-        MatrixDiagonalIter {
-            matrix: self,
-            i: 0,
-            primary: false,
-        }
-    }
-
-    // pub fn iter_columns(&self) -> MatrixColumnItemsIter<T> {
-    //     MatrixColumnItemsIter { matrix: self, i: 0 }
-    // }
-
-    pub fn primary_diagonal_mut(&mut self) -> MatrixDiagonalIterMut<T> {
-        assert!(self.is_square());
-
+    pub fn iter_diagonal_mut(&mut self, primary: bool) -> MatrixDiagonalIterMut<T> {
         MatrixDiagonalIterMut {
             matrix: self,
             i: 0,
-            primary: true,
+            primary,
         }
     }
 
-    pub fn side_diagonal_mut(&mut self) -> MatrixDiagonalIterMut<T> {
-        assert!(self.is_square());
-
-        MatrixDiagonalIterMut {
+    pub fn iter_columns(&mut self) -> MatrixColumnsIter<T> {
+        MatrixColumnsIter {
             matrix: self,
-            i: 0,
-            primary: false,
+            column: 0,
         }
     }
 
     pub fn iter_columns_mut(&mut self) -> MatrixColumnsIterMut<T> {
-        MatrixColumnsIterMut { matrix: self, i: 0 }
-    }
-}
-
-impl<T> Index<(usize, usize)> for Matrix<T> {
-    type Output = T;
-
-    fn index(&self, (row, column): (usize, usize)) -> &Self::Output {
-        &self.0[row][column]
+        MatrixColumnsIterMut {
+            matrix: self,
+            column: 0,
+        }
     }
 }
 
@@ -150,12 +127,6 @@ impl<T> Index<usize> for Matrix<T> {
 
     fn index(&self, row: usize) -> &Self::Output {
         &self.0[row]
-    }
-}
-
-impl<T> IndexMut<(usize, usize)> for Matrix<T> {
-    fn index_mut(&mut self, (row, column): (usize, usize)) -> &mut Self::Output {
-        &mut self.0[row][column]
     }
 }
 
@@ -193,6 +164,10 @@ impl<T> IntoIterator for Matrix<T> {
     }
 }
 
+//------------------------------------------------------------------------------
+// MatrixDiagonalIter iterator
+//------------------------------------------------------------------------------
+
 pub struct MatrixDiagonalIter<'a, T: 'a> {
     matrix: &'a Matrix<T>,
     i: usize,
@@ -220,11 +195,15 @@ impl<'a, T> Iterator for MatrixDiagonalIter<'a, T> {
     }
 }
 
-impl<T: Debug + Display> ExactSizeIterator for MatrixDiagonalIter<'_, T> {
+impl<T> ExactSizeIterator for MatrixDiagonalIter<'_, T> {
     fn len(&self) -> usize {
         self.matrix.rows()
     }
 }
+
+//------------------------------------------------------------------------------
+// MatrixDiagonalIterMut iterator
+//------------------------------------------------------------------------------
 
 pub struct MatrixDiagonalIterMut<'a, T: 'a> {
     matrix: &'a mut Matrix<T>,
@@ -232,7 +211,7 @@ pub struct MatrixDiagonalIterMut<'a, T: 'a> {
     primary: bool,
 }
 
-impl<'a, T: Debug + Display> Iterator for MatrixDiagonalIterMut<'a, T> {
+impl<'a, T> Iterator for MatrixDiagonalIterMut<'a, T> {
     type Item = &'a mut T;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -257,16 +236,16 @@ impl<'a, T: Debug + Display> Iterator for MatrixDiagonalIterMut<'a, T> {
     }
 }
 
-impl<T: Debug + Display> ExactSizeIterator for MatrixDiagonalIterMut<'_, T> {
+impl<T> ExactSizeIterator for MatrixDiagonalIterMut<'_, T> {
     fn len(&self) -> usize {
         self.matrix.rows()
     }
 }
 
-impl<T: Ord + Debug + Display> Sort for MatrixDiagonalIterMut<'_, T> {
-    type SortItem = T;
+impl<T> Sort for MatrixDiagonalIterMut<'_, T> {
+    type SortedItem = T;
 
-    fn swap_at(&mut self, a: usize, b: usize) {
+    fn swap(&mut self, a: usize, b: usize) {
         if self.primary {
             self.matrix.swap_elements((a, a), (b, b));
         } else {
@@ -275,22 +254,62 @@ impl<T: Ord + Debug + Display> Sort for MatrixDiagonalIterMut<'_, T> {
         }
     }
 
-    fn cmp_at_by<F>(&self, a: usize, b: usize, cmp: &mut F) -> Ordering
+    fn cmp_by<F>(&self, a: usize, b: usize, cmp: &mut F) -> Ordering
     where
         F: FnMut(&T, &T) -> Ordering,
     {
         if self.primary {
-            cmp(&self.matrix[(a, a)], &self.matrix[(b, b)])
+            cmp(&self.matrix[a][a], &self.matrix[b][b])
         } else {
             let max = self.len() - 1;
-            cmp(&self.matrix[(a, max - a)], &self.matrix[(b, max - b)])
+            cmp(&self.matrix[a][max - a], &self.matrix[b][max - b])
         }
     }
 }
 
+//------------------------------------------------------------------------------
+// MatrixColumnsIter iterator
+//------------------------------------------------------------------------------
+
+pub struct MatrixColumnsIter<'a, T: 'a> {
+    matrix: &'a Matrix<T>,
+    column: usize,
+}
+
+impl<'a, T> Iterator for MatrixColumnsIter<'a, T> {
+    type Item = Vec<Option<&'a T>>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let columns = self.matrix.columns();
+
+        if self.column >= columns {
+            return None;
+        }
+
+        let mut buf = Vec::with_capacity(columns);
+
+        for row in 0..self.matrix.rows() {
+            buf.push(self.matrix[row].get(self.column));
+        }
+
+        self.column += 1;
+        Some(buf)
+    }
+}
+
+impl<T> ExactSizeIterator for MatrixColumnsIter<'_, T> {
+    fn len(&self) -> usize {
+        self.matrix.columns()
+    }
+}
+
+//------------------------------------------------------------------------------
+// MatrixColumnsIterMut iterator
+//------------------------------------------------------------------------------
+
 pub struct MatrixColumnsIterMut<'a, T: 'a> {
     matrix: &'a mut Matrix<T>,
-    i: usize,
+    column: usize,
 }
 
 impl<'a, T> Iterator for MatrixColumnsIterMut<'a, T> {
@@ -299,7 +318,7 @@ impl<'a, T> Iterator for MatrixColumnsIterMut<'a, T> {
     fn next(&mut self) -> Option<Self::Item> {
         let columns = self.matrix.columns();
 
-        if self.i >= columns {
+        if self.column >= columns {
             return None;
         }
 
@@ -310,50 +329,18 @@ impl<'a, T> Iterator for MatrixColumnsIterMut<'a, T> {
 
             // SAFETY: We guarantee that each element is unique and no two
             // mutable references overlap.
-            let item = unsafe { (*row).get_mut(self.i) };
+            let item = unsafe { (*row).get_mut(self.column) };
 
             buf.push(item);
         }
 
-        self.i += 1;
+        self.column += 1;
         Some(buf)
     }
 }
 
-impl<T: Debug + Display> ExactSizeIterator for MatrixColumnsIterMut<'_, T> {
+impl<T> ExactSizeIterator for MatrixColumnsIterMut<'_, T> {
     fn len(&self) -> usize {
         self.matrix.columns()
-    }
-}
-
-pub trait Sort: ExactSizeIterator<Item: Ord> {
-    type SortItem;
-
-    fn swap_at(&mut self, a: usize, b: usize);
-
-    fn cmp_at_by<F>(&self, a: usize, b: usize, cmp: &mut F) -> Ordering
-    where
-        F: FnMut(&Self::SortItem, &Self::SortItem) -> Ordering;
-
-    fn bubble_sort<F>(&mut self, mut cmp: F)
-    where
-        F: FnMut(&Self::SortItem, &Self::SortItem) -> Ordering,
-    {
-        let len = self.len();
-
-        for i in 0..len {
-            let mut swapped = false;
-
-            for j in (i + 1)..len {
-                if self.cmp_at_by(i, j, &mut cmp) == Ordering::Greater {
-                    self.swap_at(i, j);
-                    swapped = true;
-                }
-            }
-
-            if !swapped {
-                break;
-            }
-        }
     }
 }
